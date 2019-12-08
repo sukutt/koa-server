@@ -1,5 +1,5 @@
 const Joi = require('@hapi/joi');
-const Account = require('models/account')
+const Account = require('models/account');
 
 exports.localRegister = async (ctx) => {
     const schema = Joi.object({
@@ -38,6 +38,15 @@ exports.localRegister = async (ctx) => {
         ctx.throw(500, e);
     }
 
+    let token = null;
+    try {
+        token = await account.generateToken();
+    } catch (e) {
+        ctx.throw(500, e);
+    }
+
+    ctx.cookies.set('access_token', token, { httpOnly: true, maxAge: 1000 * 60 * 60 * 24 * 7 });
+
     ctx.body = account.profile;
 };
 
@@ -68,6 +77,14 @@ exports.localLogin = async (ctx) => {
         return;
     }
 
+    let token = null;
+    try {
+        token = await account.generateToken();
+    } catch (e) {
+        ctx.throw(500, e);
+    }
+
+    ctx.cookies.set('access_token', token, { httpOnly: true, maxAge: 1000 * 60 * 60 * 24 * 7 });
     ctx.body = account.profile;
 };
 
@@ -87,5 +104,21 @@ exports.exists = async (ctx) => {
 };
 
 exports.logout = async (ctx) => {
-    ctx.body = 'logout';
+    ctx.cookies.set('access_token', null, {
+        httpOnly: true,
+        maxAge: 0
+    });
+
+    ctx.status = 204;
+};
+
+exports.check = (ctx) => {
+    const { user } = ctx.request;
+
+    if(!user) {
+        ctx.status = 403; // Forbidden
+        return;
+    }
+
+    ctx.body = user.profile;
 };
